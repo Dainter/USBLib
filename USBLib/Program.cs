@@ -57,7 +57,7 @@ namespace USBLib
                 UsbEndpointReader reader = MyUsbDevice.OpenEndpointReader(ReadEndpointID.Ep01);  
   
   
-                byte[] readBuffer = new byte[1024];  
+                byte[] readBuffer = new byte[4];  
                 while (ec == ErrorCode.None)  
                 {  
                     int bytesRead;  
@@ -67,16 +67,25 @@ namespace USBLib
                     ec = reader.Read(readBuffer, 5000, out bytesRead);  
   
                     if (bytesRead == 0) throw new Exception(string.Format("{0}:No more bytes!", ec));  
-                    Console.WriteLine("{0} bytes read", bytesRead);  
+                    Console.Write("\r\n{0} bytes read:\t", bytesRead);  
   
                     // Write that output to the console.  
                     for (int index = 0; index < bytesRead; index++)
                     {
-                        Console.Write("0x{0}\t", readBuffer[index].ToString("x"));
-                        if ((index+1) % 8 == 0)
+                        bool isPositive;
+                        byte bytDisplay;
+                        
+                        if(index == 1 || index == 2)
                         {
-                            Console.WriteLine("");  
+                            bytDisplay = CompleToOrig(readBuffer[index], out isPositive);
+                            if(isPositive == false)
+                            {
+                                Console.Write("-");
+                            }
+                             Console.Write("0x{0}\t", bytDisplay);
+                            continue;
                         }
+                        Console.Write("0x{0}\t", (readBuffer[index]).ToString("x"));
                     }
                     
                 }  
@@ -149,6 +158,21 @@ namespace USBLib
                 }
             }
 
+        }
+
+        static byte CompleToOrig(byte byt, out bool isPositive)
+        {
+            int iComple = (int)byt;
+            byte bResult;
+
+            if(byt < 0xC0)
+            {
+                isPositive = true;
+                return byt;
+            }
+            isPositive = false;
+            bResult = (byte)~byt;
+            return (byte)(bResult+1);
         }
 
     }
