@@ -39,6 +39,12 @@ namespace Aircraft
         public MainWindow()
         {
             StatusUpdateTimer_Init();
+            USBDeviceInit();
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            LoadInfo();
         }
 
         #region StatusTimer
@@ -65,6 +71,17 @@ namespace Aircraft
         }
         #endregion
 
+        private void LoadInfo()
+        {
+            if (MyUsbDevice == null)
+            {
+                return;
+            }
+            foreach (KeyValuePair<string, object> kvp in MyUsbDevice.UsbRegistryInfo.DeviceProperties)
+            {
+                ItemBox.Items.Add(kvp.Key);
+            }
+        }
 
         private void USBDeviceInit()
         {
@@ -132,7 +149,7 @@ namespace Aircraft
                 //this.Dispatcher.BeginInvoke(DispatcherPriority.Input, new UpdateDataDelegate(UpdateData), new object[] { bytesRead, bytesRead });
                 // If the device hasn't sent data in the last 5 seconds,  
                 // a timeout error (ec = IoTimedOut) will occur.   
-                ec = reader.Read(readBuffer, 5000, out bytesRead);
+                ec = reader.Read(readBuffer, 1000, out bytesRead);
                 for (int index = 0; index < bytesRead; index++)
                 {
                     bool isPositive;
@@ -154,7 +171,6 @@ namespace Aircraft
                                 Y_axis.Value = CalAngle(intXpos, intXoffset);
                                 Z_axis.Value = Y_axis.Value;
                                 this.Resources["XPosition"] = strDisplay;
-
                             }
                         );
                         continue;
@@ -220,14 +236,14 @@ namespace Aircraft
         private void CaptureButton_Checked(object sender, RoutedEventArgs e)
         {
             USBthread = new Thread(USBMouseCapture);
-            USBDeviceInit();
             USBthread.Start();
         }
 
         private void CaptureButton_Unchecked(object sender, RoutedEventArgs e)
         {
+            reader.Flush();
             USBthread.Abort();
-            USBDeviceRelease();
+            USBthread = null;
         }
 
         private void ExitButton_Click(object sender, RoutedEventArgs e)
@@ -242,15 +258,55 @@ namespace Aircraft
 
         private void OnClosing()
         {
-            if (USBthread.ThreadState != ThreadState.Unstarted)
+            if (USBthread == null)
             {
-                USBthread.Abort();
+                Thread.Sleep(10);
+                USBDeviceRelease();
+                return;
             }
+            reader.Flush();
+            USBthread.Abort();
+            do
+            {
+                Thread.Sleep(10);
+            } while (USBthread.ThreadState != ThreadState.Aborted);
+            USBthread = null;
             if (MyUsbDevice != null)
             {
                 USBDeviceRelease();
             }
         }
+
+        private void ItemBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (ItemBox.SelectedIndex == -1)
+            {
+                return;
+            }
+            string strKey = e.AddedItems[0].ToString();
+            string strValue = "";
+            object objValue= MyUsbDevice.UsbRegistryInfo.DeviceProperties[strKey];
+            Type type = objValue.GetType();
+            switch (type.Name.ToLower())
+            {
+                case "string[]":
+                    string[] strValues = objValue as string[];
+                    foreach (string strSeg in strValues)
+                    {
+                        strValue += "  " + strSeg + "\n";
+                    }
+                    break;
+                case "int":
+                    strValue += "  " + ((int)objValue).ToString("x");
+                    break;
+                default:
+                    strValue += "  " + objValue.ToString();
+                    break;
+            }
+            ValueBox.Text = strValue;
+        }
+
+        
 
     }
 }

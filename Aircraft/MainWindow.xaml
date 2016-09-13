@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tool="clr-namespace:_3DTools;assembly=3DTools"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
-        Title="MainWindow" Height="537" Width="525" ResizeMode="CanResizeWithGrip" Background="White" WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+        Title="MainWindow" Height="637" Width="525" ResizeMode="CanResizeWithGrip" Background="White" WindowStartupLocation="CenterScreen" Closing="Window_Closing" Loaded="Window_Loaded">
     <Window.Resources>
         <sys:String x:Key="XPosition">0</sys:String>
         <sys:String x:Key="YPosition">0</sys:String>
@@ -81,23 +81,39 @@
                 </tool:ScreenSpaceLines3D>
             </Viewport3D>
         </tool:TrackballDecorator>
-        <StackPanel Grid.Row="1" Grid.Column="0">
-            <WrapPanel>
-                <Label Content="俯仰(Pitch):"></Label>
-                <Label Content="{Binding Path=Value, ElementName=X_axis}"></Label>
-            </WrapPanel>
-            <Slider Height="22" Name="X_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_x}" Maximum="180" Minimum="-180" SmallChange="1" />
-            <WrapPanel>
-                <Label Content="偏航(Yaw):"></Label>
-                <Label Content="{Binding Path=Value, ElementName=Y_axis}"></Label>
-            </WrapPanel>
-            <Slider Height="22" Name="Y_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_y}" Maximum="180" Minimum="-180" SmallChange="1" />
-            <WrapPanel>
-                <Label Content="翻滚(Pitch):"></Label>
-                <Label Content="{Binding Path=Value, ElementName=Z_axis}"></Label>
-            </WrapPanel>
-            <Slider Height="22" Name="Z_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_z}" Maximum="180" Minimum="-180" SmallChange="1" />
-        </StackPanel>
+        <TabControl Grid.Row="1" Grid.Column="0">
+            <TabItem Header="Control">
+                <StackPanel >
+                    <WrapPanel>
+                        <Label Content="俯仰(Pitch):"></Label>
+                        <Label Content="{Binding Path=Value, ElementName=X_axis}"></Label>
+                    </WrapPanel>
+                    <Slider Height="22" Name="X_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_x}" Maximum="180" Minimum="-180" SmallChange="1" />
+                    <WrapPanel>
+                        <Label Content="偏航(Yaw):"></Label>
+                        <Label Content="{Binding Path=Value, ElementName=Y_axis}"></Label>
+                    </WrapPanel>
+                    <Slider Height="22" Name="Y_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_y}" Maximum="180" Minimum="-180" SmallChange="1" />
+                    <WrapPanel>
+                        <Label Content="翻滚(Pitch):"></Label>
+                        <Label Content="{Binding Path=Value, ElementName=Z_axis}"></Label>
+                    </WrapPanel>
+                    <Slider Height="22" Name="Z_axis" Background="{Binding ElementName=button1, Path=Background}" Value="{Binding Path=Angle, ElementName=rotate_z}" Maximum="180" Minimum="-180" SmallChange="1" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Info">
+                <Grid >
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="150*" />
+                    </Grid.RowDefinitions>
+                    <ComboBox Name="ItemBox" Grid.Row="0" Margin="3" SelectionChanged="ItemBox_SelectionChanged"></ComboBox>
+                    <TextBox Name="ValueBox" Grid.Row="1" Margin="3" IsReadOnly ="True">
+                    </TextBox>
+                </Grid>
+            </TabItem>
+        </TabControl>
+        
         <StackPanel Grid.Column="1" Grid.Row="1" >
             <Button Height ="30" Content="AutoRoll" Name="AutoRollButton" Width="100" Margin="10">
                 <Button.Triggers>
