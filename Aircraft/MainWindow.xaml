@@ -2,7 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:tool="clr-namespace:_3DTools;assembly=3DTools"
-        Title="MainWindow" Height="537" Width="525" ResizeMode="CanResizeWithGrip" Background="White" WindowStartupLocation="CenterScreen">
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        Title="MainWindow" Height="537" Width="525" ResizeMode="CanResizeWithGrip" Background="White" WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+    <Window.Resources>
+        <sys:String x:Key="XPosition">0</sys:String>
+        <sys:String x:Key="YPosition">0</sys:String>
+    </Window.Resources>
     <Grid Name="MainLayoutGrid">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200*" />
@@ -107,19 +112,20 @@
                     </EventTrigger>
                 </Button.Triggers>
             </Button>
-            <ToggleButton Height ="30" Content="Capture Mouse" Name="CaptureButton" Width="100" Margin="10" Checked="CaptureButton_Checked">
-
+            <ToggleButton Height ="30" Content="Capture Mouse" Name="CaptureButton" Width="100" Margin="10" Checked="CaptureButton_Checked" Unchecked="CaptureButton_Unchecked">
             </ToggleButton>
+            <Button Height ="30" Content="Exit" Name="ExitButton" Width="100" Margin="10" Click="ExitButton_Click">
+            </Button>
         </StackPanel>
         <StatusBar Grid.Row="2" Grid.ColumnSpan="2">
             <StatusBarItem>
                 <Label Name="StatusLabel">Ready</Label>
             </StatusBarItem>
             <StatusBarItem>
-                <Label Name="XOffsetLabel">0</Label>
+                <Label Name="XOffsetLabel" Content="{DynamicResource XPosition}"></Label>
             </StatusBarItem>
             <StatusBarItem>
-                <Label Name="YOffsetLabel">0</Label>
+                <Label Name="YOffsetLabel" Content="{DynamicResource YPosition}"></Label>
             </StatusBarItem>
         </StatusBar>
     </Grid>

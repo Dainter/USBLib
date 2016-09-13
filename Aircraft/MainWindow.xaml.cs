@@ -13,6 +13,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Collections;
 using System.Windows.Threading;
+using System.Threading;
 using LibUsbDotNet;
 using LibUsbDotNet.Main;
 using LibUsbDotNet.Info;
@@ -28,18 +29,16 @@ namespace Aircraft
     public partial class MainWindow : Window
     {
         
-        
-        public static UsbDevice MyUsbDevice;
-
         #region SET YOUR USB Vendor and Product ID!
-
+        public static UsbDevice MyUsbDevice;
         public static UsbDeviceFinder MyUsbFinder = new UsbDeviceFinder(0x046d, 0xc05a);
-
+        public static UsbEndpointReader reader;
+        public static Thread USBthread;
         #endregion  
+
         public MainWindow()
         {
             StatusUpdateTimer_Init();
-            DataUpadteTimer_Init();
         }
 
         #region StatusTimer
@@ -66,123 +65,121 @@ namespace Aircraft
         }
         #endregion
 
-        #region DataUpdateTimer
-        DispatcherTimer DataUpadteTimer;
-        private string strXoffset;
-        private string strYoffset;
 
-        private void DataUpadteTimer_Init()
+        private void USBDeviceInit()
         {
-            DataUpadteTimer = new DispatcherTimer();
-            DataUpadteTimer.Interval = new TimeSpan(0, 0, 0, 0, 10);
-            DataUpadteTimer.Tick += new EventHandler(DataUpadteTimer_Tick);
-            DataUpadteTimer.IsEnabled = false;
-            strXoffset = "0";
-            strYoffset = "0";
-        }
-
-        private void DataUpadteTimer_Tick(object sender, EventArgs e)
-        {
-            XOffsetLabel.Content = strXoffset;
-            YOffsetLabel.Content = strYoffset;
-        }
-        #endregion
-        
-
-        private void MouseCapture()
-        {
-            ErrorCode ec = ErrorCode.None;
-
-            try
+            // Find and open the usb device.  
+            MyUsbDevice = UsbDevice.OpenUsbDevice(MyUsbFinder);
+            // If the device is open and ready  
+            if (MyUsbDevice == null)
             {
-                // Find and open the usb device.  
-                MyUsbDevice = UsbDevice.OpenUsbDevice(MyUsbFinder);
-                // If the device is open and ready  
-                if (MyUsbDevice == null)
-                {
-                    throw new Exception("Device Not Found.");
-                }
-                IUsbDevice wholeUsbDevice = MyUsbDevice as IUsbDevice;
-                if (!ReferenceEquals(wholeUsbDevice, null))
-                {
-                    // This is a "whole" USB device. Before it can be used,   
-                    // the desired configuration and interface must be selected.  
-                    // Select config #1  
-                    wholeUsbDevice.SetConfiguration(1);
-                    // Claim interface #0.  
-                    wholeUsbDevice.ClaimInterface(0);
-                }
-                // open read endpoint 1.  
-                UsbEndpointReader reader = MyUsbDevice.OpenEndpointReader(ReadEndpointID.Ep01);
-                byte[] readBuffer = new byte[4];
-                while (ec == ErrorCode.None)
-                {
-                    int bytesRead;
-                    // If the device hasn't sent data in the last 5 seconds,  
-                    // a timeout error (ec = IoTimedOut) will occur.   
-                    ec = reader.Read(readBuffer, 5000, out bytesRead);
-
-                    if (bytesRead == 0)
-                    {
-                        throw new Exception(string.Format("{0}:No more bytes!", ec));
-                    }
-                    // Write that output to the console.  
-                    for (int index = 0; index < bytesRead; index++)
-                    {
-                        bool isPositive;
-                        byte bytDisplay;
-                        string strDisplay = "";
-                        if (index == 1 )
-                        {
-                            bytDisplay = CompleToOrig(readBuffer[index], out isPositive);
-                            if (isPositive == false)
-                            {
-                                strDisplay = "-";
-                            }
-                            strDisplay += bytDisplay.ToString();
-                            strXoffset = strDisplay;
-                            continue;
-                        }
-                        else if(index == 2)
-                        {
-                            bytDisplay = CompleToOrig(readBuffer[index], out isPositive);
-                            if (isPositive == false)
-                            {
-                                strDisplay = "-";
-                            }
-                            strDisplay += bytDisplay.ToString();
-                            strYoffset = strDisplay;
-                            continue;
-                        }
-                    }
-
-                }
+                throw new Exception("Device Not Found.");
             }
-            catch (Exception ex)
+            IUsbDevice wholeUsbDevice = MyUsbDevice as IUsbDevice;
+            if (!ReferenceEquals(wholeUsbDevice, null))
             {
-                ShowStatus(ex.Message.ToString());
+                // This is a "whole" USB device. Before it can be used,   
+                // the desired configuration and interface must be selected.  
+                // Select config #1  
+                wholeUsbDevice.SetConfiguration(1);
+                // Claim interface #0.  
+                wholeUsbDevice.ClaimInterface(0);
+            }
+            // open read endpoint 1.  
+            reader = MyUsbDevice.OpenEndpointReader(ReadEndpointID.Ep01);
+        }
+
+        private void USBDeviceRelease()
+        {
+            if (MyUsbDevice == null)
+            {
                 return;
             }
-            finally
+            if (MyUsbDevice.IsOpen == false)
             {
-                if (MyUsbDevice != null)
+                return;
+            }
+            if (!ReferenceEquals(reader, null))
+            {
+                // Release interface #0.  
+               reader.Dispose();
+            }
+            IUsbDevice wholeUsbDevice = MyUsbDevice as IUsbDevice;
+            if (!ReferenceEquals(wholeUsbDevice, null))
+            {
+                // Release interface #0.  
+                wholeUsbDevice.ReleaseInterface(0);
+            }
+            MyUsbDevice.Close();
+            MyUsbDevice = null;
+            // Free usb resources  
+            UsbDevice.Exit();
+        }
+
+        private void USBMouseCapture()
+        {
+            ErrorCode ec = ErrorCode.None;
+            byte[] readBuffer = new byte[4];
+            int bytesRead = 0;
+            int intXoffset;
+            int intYoffset;
+            int intXpos;
+            int intYpos;
+
+            while (true)
+            {
+                Thread.Sleep(5);
+                //this.Dispatcher.BeginInvoke(DispatcherPriority.Input, new UpdateDataDelegate(UpdateData), new object[] { bytesRead, bytesRead });
+                // If the device hasn't sent data in the last 5 seconds,  
+                // a timeout error (ec = IoTimedOut) will occur.   
+                ec = reader.Read(readBuffer, 5000, out bytesRead);
+                for (int index = 0; index < bytesRead; index++)
                 {
-                    if (MyUsbDevice.IsOpen)
+                    bool isPositive;
+                    byte bytDisplay;
+                    string strDisplay = "";
+                    if (index == 1)
                     {
-                        IUsbDevice wholeUsbDevice = MyUsbDevice as IUsbDevice;
-                        if (!ReferenceEquals(wholeUsbDevice, null))
+                        bytDisplay = CompleToOrig(readBuffer[index], out isPositive);
+                        if (isPositive == true)
                         {
-                            // Release interface #0.  
-                            wholeUsbDevice.ReleaseInterface(0);
+                            strDisplay = "-";
                         }
-                        MyUsbDevice.Close();
+                        strDisplay += bytDisplay.ToString();
+                        this.Dispatcher.BeginInvoke(DispatcherPriority.Input,
+                        (ThreadStart)delegate()
+                            {
+                                intXpos = (int)Y_axis.Value;
+                                intXoffset = Convert.ToInt32(strDisplay);
+                                Y_axis.Value = CalAngle(intXpos, intXoffset);
+                                Z_axis.Value = Y_axis.Value;
+                                this.Resources["XPosition"] = strDisplay;
+
+                            }
+                        );
+                        continue;
                     }
-                    MyUsbDevice = null;
-                    // Free usb resources  
-                    UsbDevice.Exit();
+                    else if (index == 2)
+                    {
+                        bytDisplay = CompleToOrig(readBuffer[index], out isPositive);
+                        if (isPositive == false)
+                        {
+                            strDisplay = "-";
+                        }
+                        strDisplay += bytDisplay.ToString();
+                        this.Dispatcher.BeginInvoke(DispatcherPriority.Input,
+                        (ThreadStart)delegate()
+                            {
+                                intYpos = (int)X_axis.Value;
+                                intYoffset = Convert.ToInt32(strDisplay);
+                                X_axis.Value = CalAngle(intYpos, intYoffset);
+                                this.Resources["YPosition"] = strDisplay;
+                            }
+                        );
+                        continue;
+                    }
                 }
-                
-            }  
+            }
         }
 
         byte CompleToOrig(byte byt, out bool isPositive)
@@ -200,12 +197,59 @@ namespace Aircraft
             return (byte)(bResult + 1);
         }
 
+        int CalAngle(int iPos, int iOffset)
+        {
+            const int MaxAngle = 45;
+            int newPos;
+            if (iOffset == 0)
+            {
+                return iPos;
+            }
+            newPos = iPos + iOffset;
+            if (Math.Abs(newPos) < MaxAngle)
+            {
+                return newPos;  
+            }
+            if (newPos > 0)
+            {
+                return MaxAngle;
+            }
+            return -MaxAngle;
+        }
+
         private void CaptureButton_Checked(object sender, RoutedEventArgs e)
         {
-            DataUpadteTimer.IsEnabled = true;
-            MouseCapture();
-            DataUpadteTimer.IsEnabled = false;
-            CaptureButton.IsChecked = false;
+            USBthread = new Thread(USBMouseCapture);
+            USBDeviceInit();
+            USBthread.Start();
+        }
+
+        private void CaptureButton_Unchecked(object sender, RoutedEventArgs e)
+        {
+            USBthread.Abort();
+            USBDeviceRelease();
+        }
+
+        private void ExitButton_Click(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            OnClosing();
+        }
+
+        private void OnClosing()
+        {
+            if (USBthread.ThreadState != ThreadState.Unstarted)
+            {
+                USBthread.Abort();
+            }
+            if (MyUsbDevice != null)
+            {
+                USBDeviceRelease();
+            }
         }
 
     }
